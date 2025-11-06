@@ -153,7 +153,7 @@ export const addCollaborators = async (req, res) => {
 export const givePermission = async (req, res) => {
   try {
     const { id } = req.params; // document id
-    const { userId, permission } = req.body;
+    const { userId} = req.body;
 
     const docs = await Document.findById(id);
     if (!docs) return res.status(404).json({ error: "Not found" });
@@ -164,7 +164,7 @@ export const givePermission = async (req, res) => {
     if (!collaborator)
       return res.status(404).json({ error: "Collaborator not found" });
 
-    collaborator.permission = permission;
+    collaborator.permission = collaborator.permission === "edit" ? "view" : "edit" ;
     await docs.save();
 
     return res.status(200).json({ message: "Permission updated", docs });
