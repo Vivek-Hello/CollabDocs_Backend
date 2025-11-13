@@ -8,7 +8,8 @@ import {
   givePermission,
   getAllDocs,
   getSingleDoc,
-  leaveDocs
+  leaveDocs,
+  getAllCollabs
 } from "../controllers/Document.controller.js";
 
 const Docsrouter = express.Router();
@@ -21,5 +22,6 @@ Docsrouter.put("/:id/restore/:versionIndex", restoreVersion);
 Docsrouter.post("/:id/collaborators", addCollaborators);
 Docsrouter.put("/:id/permission", givePermission);
 Docsrouter.put("/leave",leaveDocs);
+Docsrouter.get("/collabs/:id",getAllCollabs);
 
 export default Docsrouter;

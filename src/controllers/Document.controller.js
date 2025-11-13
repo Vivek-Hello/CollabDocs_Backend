@@ -1,5 +1,5 @@
 import { Document } from "../models/Document.mode.js";
-import { User } from "../models/User.model.js";
+import {  User } from "../models/User.model.js";
 
 export const getAllDocs = async(req,res)=>{
   try {
@@ -129,38 +129,68 @@ export const restoreVersion = async (req, res) => {
 // ✅ Add collaborators
 export const addCollaborators = async (req, res) => {
   try {
-    const { collaborators } = req.body; // array of { user, permission }
+    const { collaborators } = req.body; // Array of { email, permission }
     const { id } = req.params;
 
+    // Fetch the document
     const docs = await Document.findById(id);
-    if (!docs) return res.status(404).json({ error: "Not found" });
+    if (!docs) return res.status(404).json({ error: "Document not found" });
 
     if (!Array.isArray(collaborators))
-      return res.status(400).json({ error: "Collaborators must be an array" });
+      return res.status(400).json({ error: "Collaborators must be an array of {email, permission}" });
+
+    let userNotFound = [];
+    let userAlreadyAdded = [];
 
     for (const collab of collaborators) {
-      docs.collaborators.push(collab);
+      // 1. Find user by email
+      const user = await User.findOne({ email: collab.email });
+      if (!user) {
+        userNotFound.push(collab.email);
+        continue;
+      }
+      // 2. Check if already a collaborator
+      const alreadyAdded = docs.collaborators.some(c => c.user.equals(user._id));
+      if (alreadyAdded) {
+        userAlreadyAdded.push(collab.email);
+        continue;
+      }
+      // 3. Add to collaborators
+      docs.collaborators.push({ user: user._id, permission: collab.permission || "edit" });
     }
 
     await docs.save();
-    return res.status(200).json({ message: "Collaborators added", docs });
+
+    return res.status(200).json({ 
+      message: "Collaborators processed", 
+      docs, 
+      userNotFound, 
+      userAlreadyAdded 
+    });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
 };
 
+
 // ✅ Update collaborator permission
 export const givePermission = async (req, res) => {
   try {
     const { id } = req.params; // document id
+  
+    
     const { userId} = req.body;
 
     const docs = await Document.findById(id);
+  
+    
     if (!docs) return res.status(404).json({ error: "Not found" });
 
     const collaborator = docs.collaborators.find((c) =>
       c.user.equals(userId)
     );
+
+    
     if (!collaborator)
       return res.status(404).json({ error: "Collaborator not found" });
 
@@ -204,6 +234,40 @@ export const leaveDocs = async (req, res) => {
     return res.status(200).json({ message: "Left the document successfully" });
   } catch (error) {
     console.error("leaveDocs error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+
+export const getAllCollabs = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const docs = await Document.findById(id);
+
+    
+    if (!docs) return res.status(404).json({ error: "Document not found" });
+
+    // docs.collaborators: [{ user: ObjectId, permission: string }, ...]
+    const collab = [];
+
+    for (const entry of docs.collaborators) {
+      // entry: { user: ObjectId, permission: string }
+      const user = await User.findById(entry.user);
+      if (user) {
+        collab.push({
+          user:{
+            _id:user._id,
+            name: user.name,
+            email: user.email,
+          }    
+            ,
+          permission: entry.permission,
+        });
+      }
+    }
+
+    return res.status(200).json({ collaborators: collab });
+  } catch (error) {
     return res.status(500).json({ error: error.message });
   }
 };
